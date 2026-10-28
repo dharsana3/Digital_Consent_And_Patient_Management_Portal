@@ -1,0 +1,57 @@
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: digital-consent-portal
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:mysql}
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
+
+  jpa:
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  storage:
+    local-directory: ${STORAGE_LOCAL_DIRECTORY:./storage/uploads}
+    max-file-size-mb: ${STORAGE_MAX_FILE_SIZE_MB:10}
+  ai:
+    provider-type: ${AI_PROVIDER_TYPE:GLOSSARY} # GLOSSARY, GEMINI, OPENAI, GROQ
+    api-key: ${AI_API_KEY:}
+    model-name: ${AI_MODEL_NAME:gemini-1.5-flash}
+    api-endpoint: ${AI_API_ENDPOINT:https://generativelanguage.googleapis.com/v1beta/models}
+  rate-limit:
+    auth-capacity: 10
+    auth-refill-tokens: 10
+    auth-refill-duration-seconds: 60
+    ai-capacity: 20
+    ai-refill-tokens: 20
+    ai-refill-duration-seconds: 60
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
