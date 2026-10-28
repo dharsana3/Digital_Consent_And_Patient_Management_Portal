@@ -18,8 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -103,5 +106,62 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(adminReq)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Should permit CORS preflight OPTIONS request from Vercel frontend origin")
+    void testCorsPreflightFromVercelOrigin() throws Exception {
+        mockMvc.perform(options("/api/v1/auth/register")
+                        .header("Origin", "https://digital-consent-and-patient-managem.vercel.app")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "Content-Type, Authorization"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://digital-consent-and-patient-managem.vercel.app"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"))
+                .andExpect(header().string("Access-Control-Allow-Methods", containsString("POST")))
+                .andExpect(header().string("Access-Control-Allow-Headers", containsString("Content-Type")));
+    }
+
+    @Test
+    @DisplayName("Should include CORS headers on actual POST request from Vercel frontend origin")
+    void testCorsActualPostRequestFromVercelOrigin() throws Exception {
+        RegisterRequest registerReq = new RegisterRequest();
+        registerReq.setFullName("CORS Test User");
+        registerReq.setEmail("cors.test@test.com");
+        registerReq.setPassword("SecurePass123!");
+        registerReq.setRole(Role.PATIENT);
+        registerReq.setDateOfBirth(LocalDate.of(1990, 1, 1));
+        registerReq.setGender(Gender.FEMALE);
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .header("Origin", "https://digital-consent-and-patient-managem.vercel.app")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerReq)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://digital-consent-and-patient-managem.vercel.app"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"))
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("Should permit preflight OPTIONS on protected endpoints before authentication")
+    void testCorsPreflightOnProtectedEndpointBeforeAuth() throws Exception {
+        mockMvc.perform(options("/api/v1/patient/consents")
+                        .header("Origin", "https://digital-consent-and-patient-managem.vercel.app")
+                        .header("Access-Control-Request-Method", "GET")
+                        .header("Access-Control-Request-Headers", "Authorization"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://digital-consent-and-patient-managem.vercel.app"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+    }
+
+    @Test
+    @DisplayName("Should reject CORS preflight from disallowed origin")
+    void testCorsPreflightFromDisallowedOrigin() throws Exception {
+        mockMvc.perform(options("/api/v1/auth/register")
+                        .header("Origin", "https://unauthorized-evil-domain.com")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "Content-Type"))
+                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
 }
